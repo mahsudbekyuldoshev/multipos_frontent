@@ -14,7 +14,7 @@ import Modal from './Modal';
  * Ombor boshqaruvi: mahsulotlar ro'yxati, qoldiqlar, qo'shish / tahrirlash / o'chirish.
  * `onSave(product)` va `onDelete(id)` — promise qaytaradi, xato bo'lsa Error tashlaydi.
  */
-export default function Ombor({ products, loading, onSave, onDelete, sales = [] }) {
+export default function Ombor({ user, products, loading, onSave, onDelete, sales = [] }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
   const [onlyLow, setOnlyLow] = useState(false);
@@ -156,9 +156,11 @@ export default function Ombor({ products, loading, onSave, onDelete, sales = [] 
             >
               ⚙️ Kategoriyalar
             </button>
-            <button type="button" onClick={openNew} className="btn btn-steel py-1.5">
-              + Yangi mahsulot
-            </button>
+            {user?.role !== 'kassir' && (
+              <button type="button" onClick={openNew} className="btn btn-steel py-1.5">
+                + Yangi mahsulot
+              </button>
+            )}
           </div>
         </div>
 
@@ -195,20 +197,20 @@ export default function Ombor({ products, loading, onSave, onDelete, sales = [] 
                 <th className="th text-right">Minimum</th>
                 <th className="th">Holati</th>
                 <th className="th">Kelgan sana</th>
-                <th className="th pr-0" />
+                {user?.role !== 'kassir' && <th className="th pr-0" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {loading && (
                 <tr>
-                  <td colSpan={10} className="py-6 text-center text-mute">
+                  <td colSpan={user?.role === 'kassir' ? 9 : 10} className="py-6 text-center text-mute">
                     Yuklanmoqda...
                   </td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-6 text-center text-mute">
+                  <td colSpan={user?.role === 'kassir' ? 9 : 10} className="py-6 text-center text-mute">
                     Mahsulot topilmadi
                   </td>
                 </tr>
@@ -247,17 +249,19 @@ export default function Ombor({ products, loading, onSave, onDelete, sales = [] 
                       </span>
                     </td>
                     <td className="py-2.5 pr-3 font-num text-mute">{formatDate(p.receivedAt)}</td>
-                    <td className="whitespace-nowrap py-2.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(p)}
-                        aria-label={`${p.name} ni tahrirlash`}
-                        title="Tahrirlash"
-                        className="px-1 text-mute hover:text-ink"
-                      >
-                        &#9998;
-                      </button>
-                    </td>
+                    {user?.role !== 'kassir' && (
+                      <td className="whitespace-nowrap py-2.5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(p)}
+                          aria-label={`${p.name} ni tahrirlash`}
+                          title="Tahrirlash"
+                          className="px-1 text-mute hover:text-ink"
+                        >
+                          &#9998;
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

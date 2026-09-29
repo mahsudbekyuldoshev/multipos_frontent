@@ -127,6 +127,7 @@ export default function App() {
           <Kassa products={products} loading={loading} cart={cart} onCheckout={handleCheckout} />
         ) : (
           <Ombor
+            user={user}
             products={products}
             loading={loading}
             onSave={saveProduct}

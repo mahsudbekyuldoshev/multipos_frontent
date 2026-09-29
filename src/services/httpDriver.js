@@ -271,14 +271,6 @@ export const httpDriver = {
       await request(`/users/${encodeURIComponent(id)}/`, { method: 'PATCH', body: JSON.stringify(body) }),
     );
   },
-  async updateSubscription(id, { status, expiresAt }) {
-    return userFromBackend(
-      await request(`/users/${encodeURIComponent(id)}/subscription/`, {
-        method: 'PUT',
-        body: JSON.stringify({ status, expiresAt }),
-      }),
-    );
-  },
   async deleteUser(id) {
     return request(`/users/${encodeURIComponent(id)}/`, { method: 'DELETE' });
   },
