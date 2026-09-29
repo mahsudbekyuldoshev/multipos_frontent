@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply min-h-screen bg-bg font-sans text-ink antialiased;
+  }
+  button {
+    @apply cursor-pointer;
+  }
+  button:disabled {
+    @apply cursor-not-allowed;
+  }
+  :focus-visible {
+    outline: 2px solid theme('colors.steel.DEFAULT');
+    outline-offset: 2px;
+  }
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-line;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply border border-line bg-panel;
+  }
+
+  .field {
+    @apply w-full border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:text-mute/70;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 font-head text-sm uppercase tracking-wide transition-colors disabled:opacity-40;
+  }
+  .btn-steel {
+    @apply bg-steel text-onaccent hover:bg-steel-dark;
+  }
+  .btn-safety {
+    @apply bg-safety text-onaccent hover:bg-safety-dark;
+  }
+  .btn-ghost {
+    @apply border border-line bg-transparent text-ink hover:bg-panel;
+  }
+
+  .chip {
+    @apply border border-line px-3 py-1.5 font-head text-xs uppercase tracking-wide text-ink/65 transition-colors hover:text-ink;
+  }
+  .chip-active {
+    @apply border-safety bg-safety/10 text-ink;
+  }
+
+  .tab {
+    @apply border-b-2 border-transparent pb-1 font-head text-sm uppercase tracking-wide text-ink/55 transition-colors hover:text-ink;
+  }
+  .tab-active {
+    @apply border-safety text-ink;
+  }
+
+  .row-hover {
+    @apply transition-colors hover:bg-steel/10;
+  }
+
+  .th {
+    @apply py-2 pr-3 text-left font-head text-xs font-normal uppercase tracking-wide text-mute;
+  }
+}
+
+/* ---------- Chek: ekranda va printerda ---------- */
+
+@page {
+  margin: 15mm;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* Butun ilova yashiriladi, faqat portal orqali body ga qo'yilgan chek qoladi */
+  #root {
+    display: none !important;
+  }
+
+  /* Overlay: yashiriladi, faqat chek ko'rinadi */
+  .receipt-overlay {
+    position: static !important;
+    display: block !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Overlay ichidagi wrapper div */
+  .receipt-overlay > div {
+    display: block !important;
+    margin: 0 !important;
+  }
+
+  /* Chek qog'ozi: A4 varaqni to'liq qamrab oladi */
+  .receipt-paper {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+  }
+
+  .receipt-paper,
+  .receipt-paper * {
+    color: #000 !important;
+    border-color: #000 !important;
+  }
+
+  /* Tugmalarni yashirish */
+  .no-print {
+    display: none !important;
+  }
+}
