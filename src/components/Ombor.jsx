@@ -27,6 +27,7 @@ export default function Ombor({ user, products, loading, onSave, onDelete, sales
   const [catForm, setCatForm] = useState({ key: '', label: '', icon: '📦', accent: '#4E97C4' });
   const [catError, setCatError] = useState('');
   const [savingCat, setSavingCat] = useState(false);
+  const [deleteCategoryTarget, setDeleteCategoryTarget] = useState(null);
 
   const loadCategories = async () => {
     try {
@@ -113,15 +114,8 @@ export default function Ombor({ user, products, loading, onSave, onDelete, sales
     }
   };
 
-  const handleDeleteCategory = async (key, label) => {
-    if (!window.confirm(`«${label}» kategoriyasini o'chirishni tasdiqlaysizmi?`)) return;
-    try {
-      await api.deleteCategory(key);
-      await loadCategories();
-      if (category === key) setCategory('all');
-    } catch (err) {
-      alert(err.message || "O'chirishda xatolik");
-    }
+  const handleDeleteCategory = (key, label) => {
+    setDeleteCategoryTarget({ key, label });
   };
 
   return (
@@ -156,9 +150,9 @@ export default function Ombor({ user, products, loading, onSave, onDelete, sales
             >
               ⚙️ Kategoriyalar
             </button>
-            {user?.role !== 'kassir' && (
+            {user && (
               <button type="button" onClick={openNew} className="btn btn-steel py-1.5">
-                + Yangi mahsulot
+                + Yangi mahsulot qo'shish
               </button>
             )}
           </div>
@@ -197,20 +191,20 @@ export default function Ombor({ user, products, loading, onSave, onDelete, sales
                 <th className="th text-right">Minimum</th>
                 <th className="th">Holati</th>
                 <th className="th">Kelgan sana</th>
-                {user?.role !== 'kassir' && <th className="th pr-0" />}
+                {user && <th className="th pr-0" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {loading && (
                 <tr>
-                  <td colSpan={user?.role === 'kassir' ? 9 : 10} className="py-6 text-center text-mute">
+                  <td colSpan={user ? 10 : 9} className="py-6 text-center text-mute">
                     Yuklanmoqda...
                   </td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={user?.role === 'kassir' ? 9 : 10} className="py-6 text-center text-mute">
+                  <td colSpan={user ? 10 : 9} className="py-6 text-center text-mute">
                     Mahsulot topilmadi
                   </td>
                 </tr>
@@ -249,7 +243,7 @@ export default function Ombor({ user, products, loading, onSave, onDelete, sales
                       </span>
                     </td>
                     <td className="py-2.5 pr-3 font-num text-mute">{formatDate(p.receivedAt)}</td>
-                    {user?.role !== 'kassir' && (
+                    {user && (
                       <td className="whitespace-nowrap py-2.5 text-right">
                         <button
                           type="button"
@@ -413,6 +407,57 @@ export default function Ombor({ user, products, loading, onSave, onDelete, sales
               </div>
             </div>
           </Modal>
+        )}
+        {/* ── Kategoriyani O'chirishni Tasdiqlash Modali ── */}
+        {deleteCategoryTarget && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="w-full max-w-sm rounded-2xl border border-line bg-panel p-6 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rust/10 text-2xl text-rust">
+                  ⚠️
+                </div>
+                <div>
+                  <h3 className="font-head text-base font-semibold uppercase text-ink">
+                    Kategoriyani O'chirish
+                  </h3>
+                  <p className="text-xs text-mute mt-1">
+                    «{deleteCategoryTarget.label}» kategoriyasini o'chirishni tasdiqlaysizmi?
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteCategoryTarget(null)}
+                  className="btn btn-ghost rounded-lg px-4 py-2 text-xs"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await api.deleteCategory(deleteCategoryTarget.key);
+                      setDeleteCategoryTarget(null);
+                      await loadCategories();
+                      if (category === deleteCategoryTarget.key) setCategory('all');
+                    } catch (err) {
+                      alert(err.message || "O'chirishda xatolik");
+                      setDeleteCategoryTarget(null);
+                    }
+                  }}
+                  className="btn bg-rust text-onaccent hover:bg-rust/90 rounded-lg px-5 py-2 text-xs font-semibold"
+                >
+                  Ha (O'chirish)
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </section>
     </div>

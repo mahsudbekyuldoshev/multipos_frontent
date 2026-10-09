@@ -44,7 +44,64 @@ export function dateKeyOf(iso) {
   return Number.isNaN(d.getTime()) ? '' : dateKey(d);
 }
 
-/** '2026-08-14' -> '14.08.2026' */
+/** 'YYYY-MM-DD' ni mahalliy Date obyektiga aylantiradi (new Date('YYYY-MM-DD') ishlatmasdan) */
+export function parseDateKey(str) {
+  if (!str) return new Date();
+  const parts = String(str).split('-');
+  if (parts.length !== 3) return new Date(str);
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const d = parseInt(parts[2], 10);
+  return new Date(y, m - 1, d);
+}
+
+/** Ikki sana kaliti orasidagi kunlar farqi (mahalliy, Math.round bilan) */
+export function diffDays(fromKey, toKey) {
+  const d1 = parseDateKey(fromKey);
+  const d2 = parseDateKey(toKey);
+  d1.setHours(0, 0, 0, 0);
+  d2.setHours(0, 0, 0, 0);
+  const diffMs = d2.getTime() - d1.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
+
+/** Oy qo'shish yoki ayirish, oy oxiri to'g'ri ishlashi bilan */
+export function addMonthsKey(key, months) {
+  const d = parseDateKey(key);
+  const day = d.getDate();
+  d.setMonth(d.getMonth() + months);
+  if (d.getDate() < day) {
+    d.setDate(0); // oy oxiriga to'g'rilash
+  }
+  return dateKey(d);
+}
+
+/** Sana kalitiga N kun qo'shish */
+export function addDaysKey(key, days) {
+  const d = parseDateKey(key);
+  d.setDate(d.getDate() + days);
+  return dateKey(d);
+}
+
+/** '2026-10-02' -> '2-oktabr-2026' */
+export function formatUzDate(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = String(dateStr).split('-');
+  if (!y || !m || !d) return dateStr;
+  const months = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
+  const monthName = months[parseInt(m, 10) - 1] || m;
+  return `${parseInt(d, 10)}-${monthName}-${y}`;
+}
+
+/** '998901234567' | '901234567' -> '+998 90 123 45 67' */
+export function formatPhone(phone) {
+  const digits = String(phone ?? '').replace(/\D/g, '');
+  const last9 = digits.slice(-9);
+  if (last9.length !== 9) return phone;
+  const m = last9.match(/^(\d{2})(\d{3})(\d{2})(\d{2})$/);
+  if (!m) return `+998 ${last9}`;
+  return `+998 ${m[1]} ${m[2]} ${m[3]} ${m[4]}`;
+}
 export function formatDate(key) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(key ?? '');
   return m ? `${m[3]}.${m[2]}.${m[1]}` : key || '—';

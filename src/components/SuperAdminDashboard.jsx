@@ -1,23 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
-import { fmtMoney } from '../utils/format';
+import { fmtMoney, todayKey, diffDays, addMonthsKey, addDaysKey, formatUzDate, parseDateKey, formatPhone } from '../utils/format';
 
-const SUBSCRIPTION_PRICE = 80000; // so'm / oy
-
-// Muddatga N oy qo'shadi: agar hali muddati tugamagan bo'lsa QOLGAN vaqtga ustiga qo'shadi,
-// agar tugagan/belgilanmagan bo'lsa bugungi kundan boshlab hisoblaydi.
-function extendSubscriptionDate(currentExpiresAt, months) {
-  const base =
-    currentExpiresAt && new Date(currentExpiresAt) > new Date() ? new Date(currentExpiresAt) : new Date();
-  base.setMonth(base.getMonth() + months);
-  return base.toISOString().slice(0, 10);
-}
-
-// Qolgan (yoki o'tib ketgan) vaqtni kun+soatga ajratadi
 function getCountdownParts(expiresAt) {
   if (!expiresAt) return null;
-  const target = new Date(expiresAt);
-  target.setHours(23, 59, 59, 999); // muddat kunining oxirigacha amal qiladi
+  const target = parseDateKey(expiresAt);
+  target.setHours(23, 59, 59, 999);
   const diffMs = target.getTime() - Date.now();
   const expired = diffMs <= 0;
   const abs = Math.abs(diffMs);
@@ -26,16 +14,58 @@ function getCountdownParts(expiresAt) {
   return { days, hours, expired };
 }
 
-function SubscriptionCountdown({ expiresAt, status }) {
+function SubscriptionCountdown({ expiresAt, status, daysLeft, plan }) {
   const [, forceTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => forceTick((t) => t + 1), 60000); // har daqiqada yangilanadi
+    const id = setInterval(() => forceTick((t) => t + 1), 60000);
     return () => clearInterval(id);
   }, []);
 
+  if (plan === 'standard' && status === 'inactive' && (!expiresAt || diffDays(todayKey(), expiresAt) < 0)) {
+    return <span className="font-semibold text-rust">Obuna ulanmagan</span>;
+  }
   if (status === 'inactive') {
     return <span className="font-semibold text-rust">To'xtatilgan</span>;
   }
+  if (status === 'expired') {
+    return plan === 'free' ? <span className="font-semibold text-rust">Bepul davr tugagan</span> : <span className="font-semibold text-rust">Muddati tugagan</span>;
+  }
+
+  if (plan === 'free') {
+    if (daysLeft !== undefined && daysLeft !== null) {
+      if (daysLeft < 0) return <span className="font-semibold text-rust">Bepul davr tugagan ({Math.abs(daysLeft)} kun oldin)</span>;
+      if (daysLeft === 0) return <span className="font-semibold text-safety">Bugun tugaydi</span>;
+      return <span className="text-moss font-semibold">Bepul davr: {daysLeft} kun qoldi</span>;
+    }
+    const curDays = diffDays(todayKey(), expiresAt);
+    if (curDays < 0) return <span className="font-semibold text-rust">Bepul davr tugagan ({Math.abs(curDays)} kun oldin)</span>;
+    if (curDays === 0) return <span className="font-semibold text-safety">Bugun tugaydi</span>;
+    return <span className="text-moss font-semibold">Bepul davr: {curDays} kun qoldi</span>;
+  }
+
+  if (daysLeft !== undefined && daysLeft !== null) {
+    if (daysLeft < 0 || status === 'expired') {
+      return <span className="font-semibold text-rust">Muddati tugagan ({Math.abs(daysLeft)} kun oldin)</span>;
+    }
+    if (daysLeft === 0) {
+      return <span className="font-semibold text-safety">Bugun tugaydi</span>;
+    }
+    const warn = daysLeft <= 7;
+    return (
+      <span className={warn ? 'font-semibold text-safety' : 'text-moss'}>
+        {daysLeft} kun qoldi
+      </span>
+    );
+  }
+
+  const curDays = diffDays(todayKey(), expiresAt);
+  if (curDays < 0 || status === 'expired') {
+    return <span className="font-semibold text-rust">Muddati tugagan ({Math.abs(curDays)} kun oldin)</span>;
+  }
+  if (curDays === 0) {
+    return <span className="font-semibold text-safety">Bugun tugaydi</span>;
+  }
+
   const c = getCountdownParts(expiresAt);
   if (!c) return <span className="text-mute">Muddat belgilanmagan</span>;
   if (c.expired) {
@@ -53,9 +83,43 @@ function SubscriptionCountdown({ expiresAt, status }) {
   );
 }
 
+function calculateCurrentDaysLeft(expiresAt) {
+  if (!expiresAt) return 0;
+  return diffDays(todayKey(), expiresAt);
+}
+
+function calculateNewDaysLeft(expiresAt) {
+  if (!expiresAt) return 0;
+  return diffDays(todayKey(), expiresAt);
+}
+
+function calculateDiffDays(currentExpiresAt, newExpiresAt) {
+  const curRaw = diffDays(todayKey(), currentExpiresAt || todayKey());
+  const curDays = curRaw < 0 ? 0 : curRaw;
+  const newDays = diffDays(todayKey(), newExpiresAt || todayKey());
+  return newDays - curDays;
+}
+
+function formatDiffString(diff) {
+  if (diff > 0) return `+${diff} kun`;
+  if (diff < 0) return `${Math.abs(diff)} kun kamayadi`;
+  return `o'zgarmadi`;
+}
+
+function calculateShortenDate(currentExpiresAt, months) {
+  const baseKey = currentExpiresAt && diffDays(todayKey(), currentExpiresAt) > 0 ? currentExpiresAt : todayKey();
+  const newKey = addMonthsKey(baseKey, -months);
+  const today = todayKey();
+  if (diffDays(newKey, today) > 0) {
+    return today;
+  }
+  return newKey;
+}
+
 export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
   const [users, setUsers] = useState([]);
   const [markazlar, setMarkazlar] = useState([]);
+  const [tariffs, setTariffs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -66,6 +130,7 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
     phone: '',
     markazId: '',
     password: '',
+    plan: 'free',
     subscriptionMonths: 1,
   });
   const [creating, setCreating] = useState(false);
@@ -88,6 +153,8 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
     expiresAt: '',
   });
   const [savingSub, setSavingSub] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const [shortenConfirmData, setShortenConfirmData] = useState(null);
 
   // Markaz qo'shish / tahrirlash modali
   const [showMarkazModal, setShowMarkazModal] = useState(false);
@@ -95,15 +162,27 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
   const [markazForm, setMarkazForm] = useState({ name: '', address: '' });
   const [savingMarkaz, setSavingMarkaz] = useState(false);
 
-  // Chiqishni tasdiqlash modali
+  // Chiqish va o'chirish tasdiqlash modallari
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [deleteUserTarget, setDeleteUserTarget] = useState(null);
+  const [deleteMarkazTarget, setDeleteMarkazTarget] = useState(null);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [uList, mList] = await Promise.all([api.listUsers(), api.listMarkazlar()]);
+      let tList = [];
+      try {
+        tList = await api.getTariffs();
+      } catch {
+        tList = [];
+      }
+      const [uList, mList] = await Promise.all([
+        api.listUsers(),
+        api.listMarkazlar(),
+      ]);
       setUsers(uList || []);
       setMarkazlar(mList || []);
+      setTariffs(tList || []);
     } catch (err) {
       setError(err.message || "Ma'lumotlarni yuklashda xatolik yuz berdi");
     } finally {
@@ -114,6 +193,9 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
   useEffect(() => {
     loadData();
   }, []);
+
+  const standardTariff = tariffs.find((t) => t.code === 'standard');
+  const subscriptionPrice = standardTariff?.pricePerMonth || 80000;
 
   const handlePhoneFormat = (raw) => {
     let val = raw.replace(/\D/g, '');
@@ -142,29 +224,44 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
 
     setCreating(true);
     try {
-      const subscriptionExpiresAt = extendSubscriptionDate(null, form.subscriptionMonths);
-      await api.createUser({
+      const payload = {
         role: 'kassir',
         fullName: form.fullName.trim(),
-        phone: form.phone.trim(),
+        phone: '998' + form.phone.trim(),
         markazId: form.markazId ? String(form.markazId) : null,
         password: form.password.trim(),
-        subscriptionStatus: 'active',
-        subscriptionExpiresAt,
-      });
-      setSuccess(`Yangi kassir (${form.fullName}) muvaffaqiyatli qo'shildi!`);
+        plan: form.plan,
+      };
+      if (form.plan === 'standard') {
+        payload.subscription_months = form.subscriptionMonths;
+      }
+
+      await api.createUser(payload);
+
+      if (form.plan === 'free') {
+        setSuccess("Kassir qo'shildi. 11 kunlik bepul tarif berildi.");
+      } else {
+        setSuccess(`Kassir qo'shildi. ${form.subscriptionMonths} oylik Standart obuna ulandi (tugash: ${formatUzDate(addMonthsKey(todayKey(), form.subscriptionMonths))})`);
+      }
+
       setForm({
         fullName: '',
         phone: '',
         markazId: '',
         password: '',
+        plan: 'free',
         subscriptionMonths: 1,
       });
       setShowAddModal(false);
       await loadData();
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
-      setError(err.message || "Xatolik yuz berdi");
+      if (err.data?.plan || (err.message && err.message.toLowerCase().includes('bepul'))) {
+        setError("Bu raqam bepul davrdan foydalangan. Standart tarifni tanlang.");
+        setForm((prev) => ({ ...prev, plan: 'standard' }));
+      } else {
+        setError(err.message || "Xatolik yuz berdi");
+      }
     } finally {
       setCreating(false);
     }
@@ -172,9 +269,11 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
 
   const handleOpenEdit = (targetUser) => {
     setEditUser(targetUser);
+    const rawPhone = String(targetUser.phone || '').replace(/\D/g, '');
+    const last9 = rawPhone.slice(-9);
     setEditForm({
       fullName: targetUser.fullName || '',
-      phone: targetUser.phone || '',
+      phone: last9,
       markazId: targetUser.markazId || '',
       password: '',
     });
@@ -189,7 +288,7 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
     try {
       const payload = {
         fullName: editForm.fullName.trim(),
-        phone: editForm.phone.trim(),
+        phone: '998' + editForm.phone.trim(),
         markazId: editForm.markazId ? String(editForm.markazId) : null,
       };
       if (editForm.password.trim()) {
@@ -208,26 +307,36 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
     }
   };
 
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`«${name}» kassirini o'chirishni tasdiqlaysizmi?`)) return;
+  const confirmDeleteUser = async () => {
+    if (!deleteUserTarget) return;
     try {
-      await api.deleteUser(id);
+      await api.deleteUser(deleteUserTarget.id);
       setSuccess("Kassir o'chirildi.");
+      setDeleteUserTarget(null);
       await loadData();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.message || "O'chirishda xatolik");
+      setDeleteUserTarget(null);
     }
   };
 
-  // Obuna handlerlari
   const handleToggleSubStatus = async (targetUser) => {
     const newStatus = targetUser.subscriptionStatus === 'active' ? 'inactive' : 'active';
     try {
-      await api.updateSubscription(targetUser.id, {
+      const res = await api.updateSubscription(targetUser.id, {
         status: newStatus,
-        expiresAt: targetUser.subscriptionExpiresAt || new Date().toISOString().slice(0, 10),
       });
+      
+      const updatedUser = {
+        ...targetUser,
+        plan: res.plan ?? targetUser.plan,
+        subscriptionStatus: res.status ?? res.subscriptionStatus,
+        subscriptionExpiresAt: res.subscriptionEndDate || targetUser.subscriptionExpiresAt,
+        daysLeft: res.daysLeft ?? res.days_left ?? calculateCurrentDaysLeft(targetUser.subscriptionExpiresAt),
+      };
+
+      setUsers((prev) => prev.map((u) => (u.id === targetUser.id ? updatedUser : u)));
       setSuccess(
         `«${targetUser.fullName}» obunasi ${newStatus === 'active' ? 'faollashtirildi' : "to'xtatildi"}!`
       );
@@ -238,53 +347,136 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
     }
   };
 
-  const handleExtendSub = async (targetUser, months) => {
-    try {
-      const newDate = extendSubscriptionDate(targetUser.subscriptionExpiresAt, months);
-      await api.updateSubscription(targetUser.id, {
-        status: 'active',
-        expiresAt: newDate,
-      });
-      setSuccess(`«${targetUser.fullName}» obunasi ${months} oyga uzaytirildi! (${fmtMoney(SUBSCRIPTION_PRICE * months)} so'm)`);
-      setSubModalUser(null);
-      await loadData();
-      setTimeout(() => setSuccess(''), 4000);
-    } catch (err) {
-      setError(err.message || "Obunani uzaytirishda xatolik");
-    }
-  };
-
-  const handleOpenSubModal = (targetUser) => {
-    setSubModalUser(targetUser);
-    setSubForm({
-      status: targetUser.subscriptionStatus || 'active',
-      expiresAt: targetUser.subscriptionExpiresAt || new Date().toISOString().slice(0, 10),
-    });
-  };
-
-  const handleSaveSub = async (e) => {
-    e.preventDefault();
-    if (!subModalUser) return;
-    setError('');
+  const handleRenewSub = async (targetUser, months) => {
+    setModalError('');
     setSavingSub(true);
-
     try {
-      await api.updateSubscription(subModalUser.id, {
-        status: subForm.status,
-        expiresAt: subForm.expiresAt,
-      });
-      setSuccess(`«${subModalUser.fullName}» obuna muddati yangilandi!`);
+      const res = await api.renewSubscription(targetUser.id, months);
+      const newExp = res.subscriptionEndDate || res.subscriptionExpiresAt;
+      const newDays = res.daysLeft ?? res.days_left ?? calculateCurrentDaysLeft(newExp);
+      const newStatus = res.status || res.subscriptionStatus || 'active';
+      const newPlan = res.plan || 'standard';
+
+      const updatedUser = {
+        ...targetUser,
+        plan: newPlan,
+        subscriptionExpiresAt: newExp,
+        daysLeft: newDays,
+        subscriptionStatus: newStatus,
+      };
+
+      setUsers((prev) => prev.map((u) => (u.id === targetUser.id ? updatedUser : u)));
+      setSuccess(`«${targetUser.fullName}» obunasi standart tarifga o'tkazilib, ${months} oyga uzaytirildi! (${fmtMoney(subscriptionPrice * months)} so'm)`);
       setSubModalUser(null);
       await loadData();
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
-      setError(err.message || "Obuna muddatini saqlashda xatolik");
+      setModalError(err.message || err.detail || "Obunani uzaytirishda xatolik");
     } finally {
       setSavingSub(false);
     }
   };
 
-  // Markaz boshqaruvi handlerlari
+  const handleOpenShortenConfirm = (targetUser, months) => {
+    const previewDate = calculateShortenDate(targetUser.subscriptionExpiresAt, months);
+    const isPastOrToday = diffDays(todayKey(), previewDate) <= 0;
+    setShortenConfirmData({
+      user: targetUser,
+      months,
+      previewDate,
+      isPastOrToday,
+    });
+  };
+
+  const confirmShortenSub = async () => {
+    if (!shortenConfirmData) return;
+    const { user: targetUser, months, previewDate } = shortenConfirmData;
+    setShortenConfirmData(null);
+    setModalError('');
+    setSavingSub(true);
+
+    try {
+      const res = await api.shortenSubscription(targetUser.id, months);
+      const newExp = res.subscriptionEndDate || res.subscriptionExpiresAt || previewDate;
+      const newDays = res.daysLeft ?? res.days_left ?? calculateCurrentDaysLeft(newExp);
+      const newStatus = res.status || res.subscriptionStatus || 'active';
+      const newPlan = res.plan || targetUser.plan;
+
+      const updatedUser = {
+        ...targetUser,
+        plan: newPlan,
+        subscriptionExpiresAt: newExp,
+        daysLeft: newDays,
+        subscriptionStatus: newStatus,
+      };
+
+      setUsers((prev) => prev.map((u) => (u.id === targetUser.id ? updatedUser : u)));
+      if (res.clamped) {
+        setSuccess(`«${targetUser.fullName}» obunasi qisqartirildi. Muddat bugunga qisqartirildi.`);
+      } else {
+        setSuccess(`«${targetUser.fullName}» obunasi ${months} oyga qisqartirildi. Yangi muddat: ${formatUzDate(newExp)} (${newDays} kun)`);
+      }
+      setSubModalUser(null);
+      await loadData();
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (err) {
+      setModalError(err.message || err.detail || "Obunani qisqartirishda xatolik");
+    } finally {
+      setSavingSub(false);
+    }
+  };
+
+  const handleOpenSubModal = (targetUser) => {
+    setSubModalUser(targetUser);
+    setModalError('');
+    setSubForm({
+      status: targetUser.subscriptionStatus || 'active',
+      expiresAt: targetUser.subscriptionExpiresAt || todayKey(),
+    });
+  };
+
+  const handleSaveSetDate = async (e) => {
+    e.preventDefault();
+    if (!subModalUser) return;
+    setModalError('');
+
+    const diff = calculateDiffDays(subModalUser.subscriptionExpiresAt, subForm.expiresAt);
+    if (diff < 0) {
+      const isPastOrToday = diffDays(todayKey(), subForm.expiresAt) <= 0;
+      const confirmMsg = isPastOrToday
+        ? `Qolgan muddat 1 oydan kam. Obuna BUGUN (${formatUzDate(todayKey())}) tugaydi va kassir tizimga kira olmaydi. Davom etasizmi?`
+        : `Obuna muddati ${Math.abs(diff)} kunga qisqartiriladi. Yangi tugash sanasi: ${formatUzDate(subForm.expiresAt)}. Davom etasizmi?`;
+      if (!window.confirm(confirmMsg)) return;
+    }
+
+    setSavingSub(true);
+    try {
+      const res = await api.setSubscriptionDate(subModalUser.id, subForm.expiresAt);
+      const newExp = res.subscriptionEndDate || res.subscriptionExpiresAt || subForm.expiresAt;
+      const newDays = res.daysLeft ?? res.days_left ?? calculateCurrentDaysLeft(newExp);
+      const newStatus = res.status || res.subscriptionStatus || 'active';
+      const newPlan = res.plan || 'standard';
+
+      const updatedUser = {
+        ...subModalUser,
+        plan: newPlan,
+        subscriptionExpiresAt: newExp,
+        daysLeft: newDays,
+        subscriptionStatus: newStatus,
+      };
+
+      setUsers((prev) => prev.map((u) => (u.id === subModalUser.id ? updatedUser : u)));
+      setSuccess(`«${subModalUser.fullName}» obunasi ${formatUzDate(newExp)} gacha belgilandi (${newDays} kun)`);
+      setSubModalUser(null);
+      await loadData();
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (err) {
+      setModalError(err.message || err.detail || "Obuna muddatini saqlashda xatolik");
+    } finally {
+      setSavingSub(false);
+    }
+  };
+
   const handleOpenCreateMarkaz = () => {
     setEditMarkaz(null);
     setMarkazForm({ name: '', address: '' });
@@ -323,21 +515,23 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
       await loadData();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err.message || "Markazni saqlashda xatolik");
+      setError(err.message || err.detail || "Markazni saqlashda xatolik");
     } finally {
       setSavingMarkaz(false);
     }
   };
 
-  const handleDeleteMarkaz = async (id, name) => {
-    if (!window.confirm(`«${name}» markazini o'chirishni tasdiqlaysizmi?`)) return;
+  const confirmDeleteMarkaz = async () => {
+    if (!deleteMarkazTarget) return;
     try {
-      await api.deleteMarkaz(id);
+      await api.deleteMarkaz(deleteMarkazTarget.id);
       setSuccess("Markaz o'chirildi.");
+      setDeleteMarkazTarget(null);
       await loadData();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err.message || "Markazni o'chirishda xatolik");
+      setError(err.message || err.detail || "Markazni o'chirishda xatolik");
+      setDeleteMarkazTarget(null);
     }
   };
 
@@ -361,7 +555,6 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Profil tugmasi */}
             <button
               type="button"
               onClick={onOpenProfile}
@@ -371,7 +564,6 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
               <span className="max-w-[140px] truncate">{user.fullName || 'Admin'}</span>
             </button>
 
-            {/* Chiqish */}
             <button
               type="button"
               onClick={() => setShowLogoutConfirm(true)}
@@ -386,7 +578,6 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
 
       {/* ── Asosiy Kontent ── */}
       <main className="mx-auto max-w-[1500px] px-5 py-6">
-        {/* Bildirishnomalar */}
         {error && (
           <div className="mb-4 flex items-center justify-between rounded-xl border border-rust/50 bg-rust/10 px-4 py-3 text-sm text-rust">
             <span>⚠️ {error}</span>
@@ -404,6 +595,29 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
           </div>
         )}
 
+        {/* Tariflar Bloki */}
+        {tariffs.length > 0 ? (
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {tariffs.map((t) => (
+              <div key={t.code} className="rounded-2xl border border-line bg-panel p-5">
+                <div className="flex items-center justify-between">
+                  <span className="font-head text-sm font-bold uppercase tracking-wider text-ink">{t.name}</span>
+                  <span className="font-num text-xs font-semibold px-2.5 py-1 rounded bg-steel/10 text-steel">
+                    {t.code === 'free' ? '11 kun (0 so\'m)' : `${fmtMoney(t.pricePerMonth)} so'm / oy`}
+                  </span>
+                </div>
+                <div className="mt-2 text-xs text-mute">
+                  {t.code === 'free' ? 'Har bir kassir uchun bir marta, birinchi 11 kun' : 'Standart oylik obuna'}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mb-6 rounded-2xl border border-line bg-panel p-4 text-xs text-rust text-center font-semibold">
+            ⚠️ Tariflar yuklanmadi.
+          </div>
+        )}
+
         {/* Yuqori Panel va Qo'shish tugmasi */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -414,7 +628,7 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
               Yangi kassir qo'shing, obuna holatini va muddatlarini boshqaring.
             </p>
             <div className="mt-1 text-xs text-mute">
-              Obuna narxi: <span className="font-semibold text-ink">{fmtMoney(SUBSCRIPTION_PRICE)} so'm / oy</span>
+              Standart obuna narxi: <span className="font-semibold text-ink">{fmtMoney(subscriptionPrice)} so'm / oy</span>
             </div>
           </div>
 
@@ -455,7 +669,7 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
                   <th className="th py-3">Ism va Familiya</th>
                   <th className="th py-3">Telefon (Login)</th>
                   <th className="th py-3">Savdo Markazi</th>
-                  <th className="th py-3">Obuna</th>
+                  <th className="th py-3">Tarif / Obuna</th>
                   <th className="th py-3 text-right">Amallar</th>
                 </tr>
               </thead>
@@ -484,7 +698,7 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
                       </td>
 
                       <td className="py-3.5 pr-4 font-num font-medium text-ink">
-                        +998 {u.phone}
+                        {formatPhone(u.phone)}
                       </td>
 
                       <td className="py-3.5 pr-4">
@@ -495,22 +709,49 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
                         )}
                       </td>
 
-                      {/* Obuna Holati va Teskari Sanoq */}
+                      {/* Tarif va Obuna */}
                       <td className="py-3.5 pr-4">
-                        <div className="flex flex-col gap-1">
-                          <SubscriptionCountdown expiresAt={u.subscriptionExpiresAt} status={u.subscriptionStatus} />
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-2">
+                            {u.plan === 'free' ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] uppercase font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/30">
+                                Bepul
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] uppercase font-semibold bg-moss/10 text-moss border border-moss/30">
+                                Standart
+                              </span>
+                            )}
+                          </div>
+                          <SubscriptionCountdown expiresAt={u.subscriptionExpiresAt} status={u.subscriptionStatus} daysLeft={u.daysLeft} plan={u.plan} />
                           <div>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleSubStatus(u)}
-                              className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded border transition ${
-                                u.subscriptionStatus === 'active'
-                                  ? 'border-rust/40 text-rust hover:bg-rust/10'
-                                  : 'border-moss/40 text-moss hover:bg-moss/10'
-                              }`}
-                            >
-                              {u.subscriptionStatus === 'active' ? "To'xtatish" : 'Faollashtirish'}
-                            </button>
+                            {(() => {
+                              const isUnassigned = u.plan === 'standard' && u.subscriptionStatus === 'inactive' && (!u.subscriptionExpiresAt || diffDays(todayKey(), u.subscriptionExpiresAt) < 0);
+                              if (isUnassigned) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenSubModal(u)}
+                                    className="text-[10px] uppercase font-semibold px-2.5 py-1 rounded bg-safety/20 text-safety hover:bg-safety/30 transition border border-safety/40"
+                                  >
+                                    Obuna ulash
+                                  </button>
+                                );
+                              }
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSubStatus(u)}
+                                  className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded border transition ${
+                                    u.subscriptionStatus === 'active'
+                                      ? 'border-rust/40 text-rust hover:bg-rust/10'
+                                      : 'border-moss/40 text-moss hover:bg-moss/10'
+                                  }`}
+                                >
+                                  {u.subscriptionStatus === 'active' ? "To'xtatish" : 'Faollashtirish'}
+                                </button>
+                              );
+                            })()}
                           </div>
                         </div>
                       </td>
@@ -535,7 +776,7 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
 
                         <button
                           type="button"
-                          onClick={() => handleDelete(u.id, u.fullName)}
+                          onClick={() => setDeleteUserTarget({ id: u.id, name: u.fullName })}
                           className="rounded px-2.5 py-1 text-xs font-semibold text-rust hover:bg-rust/10 transition"
                         >
                           O'chirish
@@ -600,7 +841,7 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDeleteMarkaz(m.id, m.name)}
+                        onClick={() => setDeleteMarkazTarget({ id: m.id, name: m.name })}
                         className="rounded px-2.5 py-1 text-xs font-semibold text-rust hover:bg-rust/10 transition"
                       >
                         O'chirish
@@ -621,101 +862,222 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
           role="dialog"
           aria-modal="true"
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setSubModalUser(null);
+            if (e.target === e.currentTarget) {
+              setSubModalUser(null);
+              setModalError('');
+            }
           }}
         >
-          <div className="w-full max-w-md rounded-2xl border border-line bg-panel p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl border border-line bg-panel p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-line pb-4">
               <div>
                 <h3 className="font-head text-lg font-bold uppercase tracking-wide text-ink">
-                  Obunani Boshqarish
+                  {subModalUser.plan === 'free' || (subModalUser.plan === 'standard' && subModalUser.subscriptionStatus === 'inactive' && (!subModalUser.subscriptionExpiresAt || diffDays(todayKey(), subModalUser.subscriptionExpiresAt) < 0)) ? "Standart Tarifga O'tkazish" : "Obunani Boshqarish"}
                 </h3>
                 <p className="text-xs text-mute">
-                  {subModalUser.fullName} (+998 {subModalUser.phone})
+                  {subModalUser.fullName} ({formatPhone(subModalUser.phone)}) {subModalUser.plan === 'free' && <span className="text-safety font-semibold">(Bepul davr)</span>}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setSubModalUser(null)}
+                onClick={() => {
+                  setSubModalUser(null);
+                  setModalError('');
+                }}
                 className="text-2xl text-mute hover:text-ink"
               >
                 &times;
               </button>
             </div>
 
+            {modalError && (
+              <div className="mt-4 rounded-xl border border-rust/50 bg-rust/10 p-3 text-xs text-rust">
+                ⚠️ {modalError}
+              </div>
+            )}
+
             <div className="mt-5 space-y-5">
+              {/* 1) Tezkor uzaytirish / Standartga o'tkazish */}
               <div>
                 <label className="mb-2 block font-head text-xs uppercase tracking-wider text-mute">
-                  Tezkor Uzaytirish (Narxi bilan):
+                  {subModalUser.plan === 'free' || (subModalUser.plan === 'standard' && subModalUser.subscriptionStatus === 'inactive' && (!subModalUser.subscriptionExpiresAt || diffDays(todayKey(), subModalUser.subscriptionExpiresAt) < 0)) ? "Standart Tarifga O'tkazish (Uzaytirish):" : "Tezkor Uzaytirish (Narxi bilan):"}
                 </label>
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
-                    onClick={() => handleExtendSub(subModalUser, 1)}
-                    className="rounded-xl border border-line bg-paper p-3 text-left hover:border-safety transition"
+                    disabled={savingSub || tariffs.length === 0}
+                    onClick={() => handleRenewSub(subModalUser, 1)}
+                    className="rounded-xl border border-line bg-paper p-3 text-left hover:border-safety transition disabled:opacity-50"
                   >
                     <div className="font-bold text-xs text-ink">+1 oy</div>
-                    <div className="text-[11px] text-safety font-num font-semibold">{fmtMoney(SUBSCRIPTION_PRICE * 1)} so'm</div>
+                    <div className="text-[11px] text-safety font-num font-semibold">{tariffs.length > 0 ? `${fmtMoney(subscriptionPrice * 1)} so'm` : 'Narx yo\'q'}</div>
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleExtendSub(subModalUser, 3)}
-                    className="rounded-xl border border-line bg-paper p-3 text-left hover:border-safety transition"
+                    disabled={savingSub || tariffs.length === 0}
+                    onClick={() => handleRenewSub(subModalUser, 3)}
+                    className="rounded-xl border border-line bg-paper p-3 text-left hover:border-safety transition disabled:opacity-50"
                   >
                     <div className="font-bold text-xs text-ink">+3 oy</div>
-                    <div className="text-[11px] text-safety font-num font-semibold">{fmtMoney(SUBSCRIPTION_PRICE * 3)} so'm</div>
+                    <div className="text-[11px] text-safety font-num font-semibold">{tariffs.length > 0 ? `${fmtMoney(subscriptionPrice * 3)} so'm` : 'Narx yo\'q'}</div>
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleExtendSub(subModalUser, 6)}
-                    className="rounded-xl border border-line bg-paper p-3 text-left hover:border-safety transition"
+                    disabled={savingSub || tariffs.length === 0}
+                    onClick={() => handleRenewSub(subModalUser, 6)}
+                    className="rounded-xl border border-line bg-paper p-3 text-left hover:border-safety transition disabled:opacity-50"
                   >
                     <div className="font-bold text-xs text-ink">+6 oy</div>
-                    <div className="text-[11px] text-safety font-num font-semibold">{fmtMoney(SUBSCRIPTION_PRICE * 6)} so'm</div>
+                    <div className="text-[11px] text-safety font-num font-semibold">{tariffs.length > 0 ? `${fmtMoney(subscriptionPrice * 6)} so'm` : 'Narx yo\'q'}</div>
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleExtendSub(subModalUser, 12)}
-                    className="rounded-xl border border-safety/50 bg-safety/10 p-3 text-left hover:bg-safety/20 transition"
+                    disabled={savingSub || tariffs.length === 0}
+                    onClick={() => handleRenewSub(subModalUser, 12)}
+                    className="rounded-xl border border-safety/50 bg-safety/10 p-3 text-left hover:bg-safety/20 transition disabled:opacity-50"
                   >
                     <div className="font-bold text-xs text-safety">+1 yil (12 oy)</div>
-                    <div className="text-[11px] text-safety font-num font-semibold">{fmtMoney(SUBSCRIPTION_PRICE * 12)} so'm</div>
+                    <div className="text-[11px] text-safety font-num font-semibold">{tariffs.length > 0 ? `${fmtMoney(subscriptionPrice * 12)} so'm` : 'Narx yo\'q'}</div>
                   </button>
                 </div>
+                {tariffs.length === 0 && (
+                  <p className="mt-1 text-[11px] text-rust">⚠️ Tariflar yuklanmagani uchun uzaytirish o'chirilgan.</p>
+                )}
               </div>
 
-              <div className="border-t border-line pt-4">
-                <form onSubmit={handleSaveSub} className="space-y-3">
-                  <label className="block font-head text-xs uppercase tracking-wider text-mute">
-                    Aniq sana belgilash
+              {/* 2) Tezkor qisqartirish (pulsiz) - Standard active only */}
+              {subModalUser.plan !== 'free' && !(subModalUser.plan === 'standard' && subModalUser.subscriptionStatus === 'inactive' && (!subModalUser.subscriptionExpiresAt || diffDays(todayKey(), subModalUser.subscriptionExpiresAt) < 0)) && (
+                <div className="border-t border-line pt-4">
+                  <label className="mb-2 block font-head text-xs uppercase tracking-wider text-mute">
+                    Tezkor Qisqartirish (Pulsiz):
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      required
-                      value={subForm.expiresAt}
-                      onChange={(e) => setSubForm({ ...subForm, expiresAt: e.target.value })}
-                      className="field rounded-xl p-2.5 font-num text-sm text-ink bg-paper border-line flex-1"
-                    />
-                    <button
-                      type="submit"
-                      disabled={savingSub}
-                      className="btn btn-steel rounded-xl px-4 py-2.5 text-xs font-semibold disabled:opacity-50"
-                    >
-                      {savingSub ? '...' : 'Saqlash'}
-                    </button>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {[1, 3, 6].map((months) => (
+                      <button
+                        key={months}
+                        type="button"
+                        disabled={savingSub}
+                        onClick={() => handleOpenShortenConfirm(subModalUser, months)}
+                        className="rounded-xl border border-rust/40 bg-rust/10 p-3 text-left hover:bg-rust/20 transition disabled:opacity-50"
+                      >
+                        <div className="font-bold text-xs text-rust">-{months} oy</div>
+                        <div className="text-[10px] text-mute font-num">pulsiz</div>
+                      </button>
+                    ))}
                   </div>
-                </form>
-              </div>
+                </div>
+              )}
+
+              {/* 3) Aniq sana belgilash - Standard active only */}
+              {subModalUser.plan !== 'free' && !(subModalUser.plan === 'standard' && subModalUser.subscriptionStatus === 'inactive' && (!subModalUser.subscriptionExpiresAt || diffDays(todayKey(), subModalUser.subscriptionExpiresAt) < 0)) && (
+                <div className="border-t border-line pt-4">
+                  <form onSubmit={handleSaveSetDate} className="space-y-3">
+                    <label className="block font-head text-xs uppercase tracking-wider text-mute">
+                      Aniq sana belgilash
+                    </label>
+                    <div className="space-y-2">
+                      <input
+                        type="date"
+                        required
+                        min={todayKey()}
+                        value={subForm.expiresAt}
+                        onChange={(e) => {
+                          setSubForm({ ...subForm, expiresAt: e.target.value });
+                          setModalError('');
+                        }}
+                        className="field rounded-xl p-2.5 font-num text-sm text-ink bg-paper border-line w-full"
+                      />
+
+                      {/* Live Preview */}
+                      {subForm.expiresAt && (
+                        <div className="rounded-xl border border-line bg-paper p-3 text-xs space-y-1">
+                          <div>
+                            Yangi muddat: <strong className="font-num text-ink">{calculateNewDaysLeft(subForm.expiresAt)} kun qoladi</strong> ({formatUzDate(subForm.expiresAt)} da tugaydi)
+                          </div>
+                          <div>
+                            Hozir: <span className="font-num text-ink">{calculateCurrentDaysLeft(subModalUser.subscriptionExpiresAt) < 0 ? `tugagan (${Math.abs(calculateCurrentDaysLeft(subModalUser.subscriptionExpiresAt))} kun oldin)` : `${calculateCurrentDaysLeft(subModalUser.subscriptionExpiresAt)} kun`}</span> → Keyin: <span className="font-num text-ink">{calculateNewDaysLeft(subForm.expiresAt)} kun</span>{' '}
+                            <span className={calculateDiffDays(subModalUser.subscriptionExpiresAt, subForm.expiresAt) < 0 ? 'font-semibold text-rust' : calculateDiffDays(subModalUser.subscriptionExpiresAt, subForm.expiresAt) > 0 ? 'font-semibold text-moss' : 'text-mute'}>
+                              ({calculateDiffDays(subModalUser.subscriptionExpiresAt, subForm.expiresAt) === 0 ? "o'zgarmadi" : formatDiffString(calculateDiffDays(subModalUser.subscriptionExpiresAt, subForm.expiresAt))})
+                            </span>
+                          </div>
+                          {calculateDiffDays(subModalUser.subscriptionExpiresAt, subForm.expiresAt) === 0 && (
+                            <p className="text-[11px] text-safety italic">O'zgarish yo'q</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="submit"
+                        disabled={savingSub || calculateDiffDays(subModalUser.subscriptionExpiresAt, subForm.expiresAt) === 0}
+                        className="btn btn-steel rounded-xl px-5 py-2.5 text-xs font-semibold disabled:opacity-50"
+                      >
+                        {savingSub ? 'Saqlanmoqda...' : 'Saqlash'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </div>
 
             <div className="mt-6 flex items-center justify-end pt-3 border-t border-line">
               <button
                 type="button"
-                onClick={() => setSubModalUser(null)}
+                onClick={() => {
+                  setSubModalUser(null);
+                  setModalError('');
+                }}
                 className="btn btn-ghost rounded-lg px-4 py-2 text-xs"
               >
                 Yopish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Qisqartirishni Tasdiqlash Modali (B1) ── */}
+      {shortenConfirmData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-panel p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-2xl ${shortenConfirmData.isPastOrToday ? 'bg-rust/10 text-rust' : 'bg-safety/10 text-safety'}`}>
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-head text-base font-semibold uppercase text-ink">
+                  Obunani Qisqartirish
+                </h3>
+                <p className="text-xs text-mute mt-1">
+                  {shortenConfirmData.isPastOrToday ? (
+                    <span className="text-rust font-medium">
+                      Qolgan muddat 1 oydan kam. Obuna BUGUN ({formatUzDate(todayKey())}) tugaydi va kassir tizimga kira olmaydi. Davom etasizmi?
+                    </span>
+                  ) : (
+                    <span>
+                      Obuna {shortenConfirmData.months} oyga qisqartiriladi. Yangi tugash sanasi: {formatUzDate(shortenConfirmData.previewDate)} ({calculateNewDaysLeft(shortenConfirmData.previewDate)} kun qoladi). Davom etasizmi?
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShortenConfirmData(null)}
+                className="btn btn-ghost rounded-lg px-4 py-2 text-xs"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="button"
+                disabled={savingSub}
+                onClick={confirmShortenSub}
+                className="btn bg-rust text-onaccent hover:bg-rust/90 rounded-lg px-5 py-2 text-xs font-semibold disabled:opacity-50"
+              >
+                {savingSub ? 'Bajarilmoqda...' : 'Tasdiqlash'}
               </button>
             </div>
           </div>
@@ -732,7 +1094,7 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
             if (e.target === e.currentTarget) setShowAddModal(false);
           }}
         >
-          <div className="w-full max-w-md rounded-2xl border border-line bg-panel p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl border border-line bg-panel p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-line pb-4">
               <h3 className="font-head text-lg font-bold uppercase tracking-wide text-ink">
                 Yangi Kassir Qo'shish
@@ -813,27 +1175,91 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
                 />
               </div>
 
+              {/* Tarif tanlash */}
               <div>
-                <label className="mb-1 block font-head text-xs uppercase tracking-wide text-mute">
-                  Boshlang'ich obuna muddati
+                <label className="mb-2 block font-head text-xs uppercase tracking-wider text-mute">
+                  Tarifni Tanlang <span className="text-rust">*</span>
                 </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[1, 3, 6, 12].map((months) => (
-                    <button
-                      key={months}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, subscriptionMonths: months }))}
-                      className={`rounded-lg border p-2 text-center text-xs ${
-                        form.subscriptionMonths === months
-                          ? 'border-safety bg-safety/10 text-safety'
-                          : 'border-line text-mute hover:text-ink'
-                      }`}
-                    >
-                      <div className="font-semibold">{months === 12 ? '1 yil' : `${months} oy`}</div>
-                      <div className="mt-0.5 font-num">{(SUBSCRIPTION_PRICE * months).toLocaleString('uz')} so'm</div>
-                    </button>
-                  ))}
-                </div>
+                {tariffs.length === 0 ? (
+                  <div className="rounded-xl border border-rust/40 bg-rust/10 p-3 text-xs text-rust font-semibold">
+                    ⚠️ Tariflar yuklanmadi. Kassir yaratish o'chirilgan.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      {tariffs.map((t) => (
+                        <label
+                          key={t.code}
+                          onClick={() => setForm({ ...form, plan: t.code })}
+                          className={`flex cursor-pointer flex-col rounded-xl border p-3.5 transition ${
+                            form.plan === t.code
+                              ? 'border-steel bg-steel/10 text-ink'
+                              : 'border-line bg-paper text-mute hover:border-steel/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-head text-xs font-bold uppercase">{t.name}</span>
+                            <input
+                              type="radio"
+                              name="plan"
+                              checked={form.plan === t.code}
+                              onChange={() => setForm({ ...form, plan: t.code })}
+                              className="accent-steel"
+                            />
+                          </div>
+                          <span className="mt-1 font-num text-xs font-semibold text-ink">
+                            {t.code === 'free' ? '11 kun, 0 so\'m' : `${fmtMoney(t.pricePerMonth || 80000)} so'm / oy`}
+                          </span>
+                          <span className="mt-1 text-[11px] text-mute">
+                            {t.code === 'free' ? 'Har bir raqam uchun bir marta.' : 'Oylik standart obuna'}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    {form.plan === 'standard' && (
+                      <div className="space-y-2 rounded-xl border border-line bg-paper p-3.5">
+                        <label className="block font-head text-xs uppercase tracking-wider text-mute">
+                          Obuna Muddati (Oylar):
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            { months: 1, label: '1 oy' },
+                            { months: 3, label: '3 oy' },
+                            { months: 6, label: '6 oy' },
+                            { months: 12, label: '1 yil' },
+                          ].map((item) => (
+                            <button
+                              key={item.months}
+                              type="button"
+                              onClick={() => setForm({ ...form, subscriptionMonths: item.months })}
+                              className={`rounded-lg border px-2 py-2 text-xs font-semibold transition ${
+                                form.subscriptionMonths === item.months
+                                  ? 'border-safety bg-safety/20 text-safety'
+                                  : 'border-line bg-panel text-ink hover:border-safety/50'
+                              }`}
+                            >
+                              <div>{item.label}</div>
+                              <div className="text-[10px] font-num text-mute">{fmtMoney(subscriptionPrice * item.months)}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Summary */}
+                    <div className="rounded-xl border border-line bg-paper p-3 text-xs text-ink">
+                      {form.plan === 'free' ? (
+                        <span>Bepul davr tugashi: <strong className="font-num text-moss">{formatUzDate(addDaysKey(todayKey(), 11))}</strong></span>
+                      ) : (
+                        <span>
+                          Jami: <strong className="font-num text-safety">{fmtMoney(subscriptionPrice * form.subscriptionMonths)}</strong>. Obuna tugashi:{' '}
+                          <strong className="font-num text-moss">{formatUzDate(addMonthsKey(todayKey(), form.subscriptionMonths))}</strong>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 flex items-center justify-end gap-3 pt-2">
@@ -846,7 +1272,7 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={creating}
+                  disabled={creating || tariffs.length === 0}
                   className="btn btn-steel rounded-lg px-5 py-2 text-xs font-semibold disabled:opacity-50"
                 >
                   {creating ? 'Qo\'shilmoqda...' : 'Kassirni Saqlash'}
@@ -1037,6 +1463,90 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Kassirni O'chirishni Tasdiqlash Modali ── */}
+      {deleteUserTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-panel p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rust/10 text-2xl text-rust">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-head text-base font-semibold uppercase text-ink">
+                  Kassirni O'chirish
+                </h3>
+                <p className="text-xs text-mute mt-1">
+                  «{deleteUserTarget.name}» kassirini o'chirishni tasdiqlaysizmi?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteUserTarget(null)}
+                className="btn btn-ghost rounded-lg px-4 py-2 text-xs"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteUser}
+                className="btn bg-rust text-onaccent hover:bg-rust/90 rounded-lg px-5 py-2 text-xs font-semibold"
+              >
+                Ha (O'chirish)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Markazni O'chirishni Tasdiqlash Modali ── */}
+      {deleteMarkazTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-panel p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rust/10 text-2xl text-rust">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-head text-base font-semibold uppercase text-ink">
+                  Markazni O'chirish
+                </h3>
+                <p className="text-xs text-mute mt-1">
+                  «{deleteMarkazTarget.name}» markazini o'chirishni tasdiqlaysizmi?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteMarkazTarget(null)}
+                className="btn btn-ghost rounded-lg px-4 py-2 text-xs"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteMarkaz}
+                className="btn bg-rust text-onaccent hover:bg-rust/90 rounded-lg px-5 py-2 text-xs font-semibold"
+              >
+                Ha (O'chirish)
+              </button>
+            </div>
           </div>
         </div>
       )}

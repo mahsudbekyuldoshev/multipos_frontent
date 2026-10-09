@@ -42,12 +42,19 @@ export default function App() {
   // Sotuvni yakunlash
   const handleCheckout = async () => {
     if (cart.lines.length === 0) return;
-    const sale = await createSale(
-      cart.lines.map((l) => ({ productId: l.product.id, quantity: l.quantity })),
-    );
-    await reload();
-    cart.clear();
-    setReceipt(sale);
+    try {
+      const sale = await createSale(
+        cart.lines.map((l) => ({ productId: l.product.id, quantity: l.quantity })),
+      );
+      await reload();
+      cart.clear();
+      setReceipt(sale);
+    } catch (err) {
+      if (err.status === 403) {
+        throw new Error("Obuna muddati tugagan. Administratorga murojaat qiling.");
+      }
+      throw err;
+    }
   };
 
   const handleLogout = () => {

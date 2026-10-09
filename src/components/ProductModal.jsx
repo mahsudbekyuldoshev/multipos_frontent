@@ -26,6 +26,7 @@ export default function ProductModal({ product, onSave, onDelete, onClose }) {
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const set = (key) => (e) => {
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -45,7 +46,7 @@ export default function ProductModal({ product, onSave, onDelete, onClose }) {
       return setError("Narx va miqdorlar 0 dan kichik bo'lmagan son bo'lishi kerak.");
     }
     if (!getUnit(form.unit).fractional && (!Number.isInteger(stock) || !Number.isInteger(minStock))) {
-      return setError(`«${form.unit}» butun sonda hisoblanadi — kasr son kiritmang.`);
+      return setError(`«{form.unit}» butun sonda hisoblanadi — kasr son kiritmang.`);
     }
     if (!form.receivedAt) return setError('Kelgan sanani kiriting.');
 
@@ -70,16 +71,8 @@ export default function ProductModal({ product, onSave, onDelete, onClose }) {
     return undefined;
   };
 
-  const remove = async () => {
-    if (!window.confirm(`«${product.name}» mahsulotini ombordan o'chirishni tasdiqlaysizmi?`)) return;
-    setSaving(true);
-    try {
-      await onDelete(product.id);
-      onClose();
-    } catch (err) {
-      setError(err.message || "O'chirib bo'lmadi.");
-      setSaving(false);
-    }
+  const remove = () => {
+    setShowDeleteConfirm(true);
   };
 
   return (
@@ -195,6 +188,51 @@ export default function ProductModal({ product, onSave, onDelete, onClose }) {
           </div>
         </div>
       </form>
-    </Modal>
-  );
-}
+
+      {showDeleteConfirm && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/75 p-4 rounded-2xl backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-panel p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rust/10 text-2xl text-rust">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-head text-base font-semibold uppercase text-ink">
+                  Mahsulotni O'chirish
+                </h3>
+                <p className="text-xs text-mute mt-1">
+                  «{product.name}» mahsulotini ombordan o'chirishni tasdiqlaysizmi?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="btn btn-ghost rounded-lg px-4 py-2 text-xs"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setSaving(true);
+                  try {
+                    await onDelete(product.id);
+                    onClose();
+                  } catch (err) {
+                    setError(err.message || "O'chirib bo'lmadi.");
+                    setSaving(false);
+                    setShowDeleteConfirm(false);
+                  }
+                }}
+                className="btn bg-rust text-onaccent hover:bg-rust/90 rounded-lg px-5 py-2 text-xs font-semibold"
+              >
+                Ha (O'chirish)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>)}

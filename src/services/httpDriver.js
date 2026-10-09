@@ -25,18 +25,88 @@ function storeAuth(data) {
 
 function toFullPhone(phone) {
   const digits = String(phone ?? '').replace(/\D/g, '');
-  if (digits.startsWith('998') && digits.length === 12) return digits;
-  return `998${digits.slice(-9)}`;
+  const last9 = digits.slice(-9);
+  if (last9.length < 9) {
+    throw new Error("Telefon raqami 9 raqamdan iborat bo'lishi kerak");
+  }
+  return `998${last9}`;
 }
 
 const ROLE_FROM_BACKEND = { superadmin: 'super_admin', cashier: 'kassir' };
 
-function extractErrorMessage(data) {
+function formatFieldKey(key) {
+  const map = {
+    phone: 'Telefon',
+    phoneNumber: 'Telefon',
+    phone_number: 'Telefon',
+    fullName: 'Ism va familiya',
+    first_name: 'Ism',
+    last_name: 'Familiya',
+    password: 'Parol',
+    plan: 'Tarif',
+    subscriptionMonths: 'Obuna oylari',
+    subscription_months: 'Obuna oylari',
+    name: 'Nomi',
+    address: 'Manzil',
+    sku: 'Artikul',
+    price: 'Narx',
+    key: 'Kalit',
+    label: 'Nomi',
+    category: 'Kategoriya',
+    unit: "O'lchov birligi",
+    qty: 'Qoldiq',
+    min: 'Minimal qoldiq',
+    dateReceived: 'Kelgan sana',
+    items: 'Mahsulotlar',
+  };
+  return map[key] || key;
+}
+
+function formatNestedError(err) {
+  if (typeof err === 'string') return err;
+  if (Array.isArray(err)) {
+    for (const item of err) {
+      const res = formatNestedError(item);
+      if (res && res !== '[object Object]') return res;
+    }
+  }
+  if (err && typeof err === 'object') {
+    for (const val of Object.values(err)) {
+      const res = formatNestedError(val);
+      if (res && res !== '[object Object]') return res;
+    }
+  }
+  return String(err);
+}
+
+function extractErrorMessage(data, status) {
+  if (status === 403) {
+    const detail = data?.detail;
+    if (detail && detail !== "You do not have permission to perform this action.") {
+      return detail;
+    }
+    return "Ruxsat yo'q yoki obuna muddati tugagan.";
+  }
+  if (status >= 500) {
+    return "Server xatosi. Keyinroq urinib ko'ring yoki administratorga murojaat qiling.";
+  }
   if (!data) return "Noma'lum xatolik yuz berdi.";
-  if (data.message) return data.message;
+  if (typeof data === 'string') return data;
   if (data.detail) return data.detail;
-  const firstField = Object.values(data)[0];
-  if (Array.isArray(firstField)) return firstField[0];
+  if (data.message) return data.message;
+
+  const entries = Object.entries(data);
+  if (entries.length > 0) {
+    const parts = [];
+    for (const [field, errs] of entries.slice(0, 3)) {
+      const fieldName = formatFieldKey(field);
+      const errText = formatNestedError(errs);
+      if (errText && errText !== '[object Object]') {
+        parts.push(`${fieldName}: ${errText}`);
+      }
+    }
+    if (parts.length > 0) return parts.join('; ');
+  }
   return "Ma'lumotlarni tekshiring.";
 }
 
@@ -67,6 +137,10 @@ function productToBackend(p) {
 }
 
 function userFromBackend(u) {
+  const expiresAt = u.subscriptionExpiresAt ?? u.subscriptionEndDate ?? u.end_date ?? null;
+  const daysLeft = u.daysLeft ?? u.days_left ?? null;
+  const status = u.subscriptionStatus ?? u.status ?? 'active';
+  const plan = u.plan ?? 'standard';
   return {
     id: String(u.id),
     role: ROLE_FROM_BACKEND[u.role] ?? u.role,
@@ -74,8 +148,10 @@ function userFromBackend(u) {
     phone: u.phoneNumber,
     centerName: u.markaz?.name ?? '',
     markazId: u.markaz?.id != null ? String(u.markaz.id) : null,
-    subscriptionStatus: 'active',
-    subscriptionExpiresAt: null,
+    plan,
+    subscriptionStatus: status,
+    subscriptionExpiresAt: expiresAt,
+    daysLeft: daysLeft,
   };
 }
 
@@ -153,7 +229,10 @@ async function request(path, options = {}) {
   }
 
   if (!res.ok) {
-    throw new Error(extractErrorMessage(data));
+    const error = new Error(extractErrorMessage(data, res.status));
+    error.status = res.status;
+    error.data = data;
+    throw error;
   }
   return data;
 }
@@ -255,8 +334,13 @@ export const httpDriver = {
       last_name: rest.join(' '),
       password: data.password,
       markaz: data.markazId ? Number(data.markazId) : null,
+      plan: data.plan || 'free',
     };
-    return userFromBackend(await request('/users/', { method: 'POST', body: JSON.stringify(body) }));
+    if (body.plan === 'standard' && (data.subscription_months || data.subscriptionMonths)) {
+      body.subscription_months = Number(data.subscription_months || data.subscriptionMonths);
+    }
+    const res = await request('/users/', { method: 'POST', body: JSON.stringify(body) });
+    return userFromBackend(res);
   },
   async updateUser(id, data) {
     const [firstName, ...rest] = String(data.fullName ?? '').trim().split(' ');
@@ -270,6 +354,40 @@ export const httpDriver = {
     return userFromBackend(
       await request(`/users/${encodeURIComponent(id)}/`, { method: 'PATCH', body: JSON.stringify(body) }),
     );
+  },
+  async getTariffs() {
+    return request('/tariffs/');
+  },
+  async renewSubscription(userId, months) {
+    return request(`/users/${encodeURIComponent(userId)}/renew-subscription/`, {
+      method: 'POST',
+      body: JSON.stringify({ months }),
+    });
+  },
+  async updateSubscription(userId, data) {
+    const res = await request(`/users/${encodeURIComponent(userId)}/subscription/`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: data.status }),
+    });
+    return {
+      id: String(res.id),
+      plan: res.plan,
+      status: res.status,
+      subscriptionEndDate: res.subscriptionEndDate ?? res.end_date,
+      daysLeft: res.daysLeft ?? res.days_left,
+    };
+  },
+  async setSubscriptionDate(userId, endDate) {
+    return request(`/users/${encodeURIComponent(userId)}/subscription/set-date/`, {
+      method: 'POST',
+      body: JSON.stringify({ end_date: endDate }),
+    });
+  },
+  async shortenSubscription(userId, months) {
+    return request(`/users/${encodeURIComponent(userId)}/subscription/shorten/`, {
+      method: 'POST',
+      body: JSON.stringify({ months }),
+    });
   },
   async deleteUser(id) {
     return request(`/users/${encodeURIComponent(id)}/`, { method: 'DELETE' });
