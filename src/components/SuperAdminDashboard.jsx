@@ -1426,7 +1426,7 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
                 <input
                   type="text"
                   required
-                  placeholder="Masalan: Mustahkam Savdo Markazi"
+                  placeholder="Masalan: PPremium Savdo Markazi"
                   value={markazForm.name}
                   onChange={(e) => setMarkazForm({ ...markazForm, name: e.target.value })}
                   className="field rounded-lg"

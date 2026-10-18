@@ -13,7 +13,7 @@ const KEY_USERS = 'multipos:users:v1';
 const KEY_MARKAZLAR = 'multipos:markazlar:v1';
 const KEY_CATEGORIES = 'multipos:categories:v1';
 
-const SEED_MARKAZLAR = [{ id: 'm1', name: 'Mustahkam Savdo Markazi', address: 'Toshkent shahri' }];
+const SEED_MARKAZLAR = [{ id: 'm1', name: 'PPremium Savdo Markazi', address: 'Toshkent shahri' }];
 const SEED_CATEGORIES = [
   { key: 'qurilish', label: 'Qurilish', icon: '🧱', accent: '#4E97C4' },
   { key: 'elektrika', label: 'Elektrika', icon: '🔌', accent: '#E8B23B' },
@@ -58,7 +58,7 @@ const SEED_USERS = [
     fullName: 'Ali Valiyev',
     phone: '901234567',
     password: '1234',
-    centerName: 'Mustahkam Savdo Markazi',
+    centerName: 'PPremium Savdo Markazi',
     subscriptionStatus: 'active',
     subscriptionExpiresAt: getDefaultNextYear(),
     createdAt: new Date().toISOString(),

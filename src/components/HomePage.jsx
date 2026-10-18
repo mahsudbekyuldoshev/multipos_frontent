@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../services/api';
+import { BRAND_NAME } from '../config/brand';
 
 export default function HomePage({ onGoLogin }) {
   const [contactForm, setContactForm] = useState({ name: '', phone: '', message: '' });
@@ -36,11 +37,11 @@ export default function HomePage({ onGoLogin }) {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-steel font-head text-xl font-bold text-onaccent">
-              M
+              {BRAND_NAME[0]}
             </div>
             <div>
               <span className="font-head text-xl font-bold uppercase tracking-wider text-ink">
-                MultiPOS
+                {BRAND_NAME}
               </span>
               <span className="ml-2 rounded border border-steel/40 bg-steel/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-steel">
                 Kassa & Ombor
@@ -111,7 +112,7 @@ export default function HomePage({ onGoLogin }) {
             Do'kon va Savdo Markazlari uchun <span className="text-steel">Aqlli Kassa Tizimi</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-mute md:text-lg">
-            MultiPOS — bu qurilish mollari, santexnika, elektrika va avto-detallar chakana savdosi, ombor qoldig'i hisobi, tezkor chek chiqarish hamda
+            {BRAND_NAME} — bu qurilish mollari, santexnika, elektrika va avto-detallar chakana savdosi, ombor qoldig'i hisobi, tezkor chek chiqarish hamda
             keng qamrovli tushum analitikasini bitta qulay platformada birlashtirgan avtomatlashtirilgan tizim.
           </p>
 
@@ -160,7 +161,7 @@ export default function HomePage({ onGoLogin }) {
           <div className="text-center">
             <h2 className="font-head text-xs uppercase tracking-widest text-steel">Loyiha haqida</h2>
             <h3 className="mt-2 font-head text-3xl font-bold uppercase tracking-wide text-ink">
-              MultiPOS nima va u qanday foyda beradi?
+              {BRAND_NAME} nima va u qanday foyda beradi?
             </h3>
             <p className="mx-auto mt-3 max-w-2xl text-sm text-mute">
               Ushbu tizim qurilish mollari, santexnika va elektrika savdo markazlari hamda do'konlari ishini maksimal darajada soddalashtirish,
@@ -211,7 +212,7 @@ export default function HomePage({ onGoLogin }) {
           <div className="text-center">
             <h2 className="font-head text-xs uppercase tracking-widest text-safety">Imkoniyatlar</h2>
             <h3 className="mt-2 font-head text-3xl font-bold uppercase tracking-wide text-ink">
-              MultiPOS Tizimining Asosiy Funksiyalari
+              {BRAND_NAME} Tizimining Asosiy Funksiyalari
             </h3>
           </div>
 
@@ -289,7 +290,7 @@ export default function HomePage({ onGoLogin }) {
               </div>
 
               <div className="text-left">
-                <h3 className="font-head text-xl font-bold uppercase text-ink">MultiPOS To'liq Versiya</h3>
+                <h3 className="font-head text-xl font-bold uppercase text-ink">{BRAND_NAME} To'liq Versiya</h3>
                 <p className="mt-1 text-xs text-mute">Barcha savdo va ombor imkoniyatlari kiritilgan</p>
               </div>
 
@@ -408,7 +409,7 @@ export default function HomePage({ onGoLogin }) {
                   <div>
                     <div className="text-xs text-mute">Telegram qo'llab-quvvatlash</div>
                     <a href="https://t.me/" target="_blank" rel="noreferrer" className="font-semibold hover:text-steel">
-                      @MultiPOS_Support
+                      @{BRAND_NAME}_Support
                     </a>
                   </div>
                 </div>
@@ -527,12 +528,12 @@ export default function HomePage({ onGoLogin }) {
         <div className="mx-auto max-w-5xl px-5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded bg-steel text-xs font-bold text-onaccent">
-              M
+              {BRAND_NAME[0]}
             </span>
-            <span className="font-head text-sm font-semibold uppercase text-ink">MultiPOS</span>
+            <span className="font-head text-sm font-semibold uppercase text-ink">{BRAND_NAME}</span>
             <span>— Kassa va Savdo Avtomatlashtirish</span>
           </div>
-          <div>© {new Date().getFullYear()} MultiPOS. Barcha huquqlar himoyalangan.</div>
+          <div>© {new Date().getFullYear()} {BRAND_NAME}. Barcha huquqlar himoyalangan.</div>
         </div>
       </footer>
     </div>

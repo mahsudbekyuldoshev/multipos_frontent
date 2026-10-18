@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BRAND_NAME } from '../config/brand';
 
 /**
  * Kassa tizimiga kirish sahifasi.
@@ -53,7 +54,7 @@ export default function LoginPage({ onLogin, loading, error, onBack }) {
             🛒
           </div>
           <h1 className="font-head text-2xl uppercase tracking-widest text-ink">
-            MultiPOS Kirish
+            {BRAND_NAME} Kirish
           </h1>
           <p className="mt-1 text-xs text-mute">
             Tizimga kirish uchun telefon raqam va parolingizni kiriting
@@ -152,7 +153,7 @@ export default function LoginPage({ onLogin, loading, error, onBack }) {
         </div>
 
         <p className="mt-5 text-center text-xs text-mute/50">
-          MultiPOS Kassa Tizimi · v1.0
+          {BRAND_NAME} Kassa Tizimi · v1.0
         </p>
       </div>
     </div>
