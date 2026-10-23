@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { fmtMoney, todayKey, diffDays, addMonthsKey, addDaysKey, formatUzDate, parseDateKey, formatPhone } from '../utils/format';
+import PremiumLogo from './PremiumLogo';
 
 function getCountdownParts(expiresAt) {
   if (!expiresAt) return null;
@@ -540,17 +541,15 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
       {/* ── Header ── */}
       <header className="sticky top-0 z-30 border-b border-line bg-panel">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 px-5 py-3.5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-steel font-head text-xl font-bold text-onaccent">
-              M
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-head text-xl font-bold uppercase tracking-wider text-ink">
-                  Kassirlar va Obunalar Boshqaruvi
-                </span>
-              </div>
-              <p className="text-xs text-mute">Kassirlar ro'yxati, obunalar va savdo markazlari nazorati</p>
+          <div className="flex items-center gap-4">
+            <PremiumLogo size="md" badge={false} />
+            <div className="flex flex-col justify-center">
+              <h1 className="font-head text-lg sm:text-xl font-bold uppercase tracking-wider text-ink leading-tight">
+                Kassirlar va Obunalar Boshqaruvi
+              </h1>
+              <p className="text-xs sm:text-[13px] text-mute mt-0.5">
+                Kassirlar ro'yxati, obunalar va savdo markazlari nazorati
+              </p>
             </div>
           </div>
 
@@ -1426,7 +1425,7 @@ export default function SuperAdminDashboard({ user, onLogout, onOpenProfile }) {
                 <input
                   type="text"
                   required
-                  placeholder="Masalan: PPremium Savdo Markazi"
+                  placeholder="Masalan: Premium Savdo Markazi"
                   value={markazForm.name}
                   onChange={(e) => setMarkazForm({ ...markazForm, name: e.target.value })}
                   className="field rounded-lg"

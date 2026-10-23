@@ -8,4 +8,10 @@ dist
 .DS_Store
 Thumbs.db
 
-│  To resume this session: gemini --resume 573814d7-2f0b-4bff-83e1-42a122e40620                                                                                                                                                    │
+
+
+
+
+
+
+gemini --resume a2f203da-eea1-4d7f-b4f6-b1cea6cd862d

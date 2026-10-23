@@ -7,7 +7,7 @@
 // role: super_admin/kassir, number sonlar). Shu tufayli UI komponentlarining aksariyati
 // o'zgarishsiz qoladi.
 
-const ROOT_URL = (import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '');
+const ROOT_URL = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
 const V1 = `${ROOT_URL}/api/v1`;
 const AUTH_KEY = 'multipos:auth'; // { access, refresh, user }
 

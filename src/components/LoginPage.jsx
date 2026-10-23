@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { BRAND_NAME } from '../config/brand';
+import { BRAND_DOMAIN, BRAND_TAGLINE } from '../config/brand';
+import PremiumLogo from './PremiumLogo';
 
 /**
  * Kassa tizimiga kirish sahifasi.
- * Foydalanuvchi telefon raqami va parol bilan kiradi.
- * Tizim o'zi foydalanuvchi hisobini aniqlab, mos sahifaga yo'naltiradi.
  */
 export default function LoginPage({ onLogin, loading, error, onBack }) {
   const [phone, setPhone] = useState('');
@@ -16,7 +15,6 @@ export default function LoginPage({ onLogin, loading, error, onBack }) {
     onLogin(phone.trim(), password);
   };
 
-  // Telefon raqamni formatlash: +998 XX XXX XX XX
   const handlePhoneChange = (e) => {
     let val = e.target.value.replace(/\D/g, '');
     if (val.startsWith('998')) val = val.slice(3);
@@ -30,7 +28,7 @@ export default function LoginPage({ onLogin, loading, error, onBack }) {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-bg px-4 py-12">
-      {/* Bosh sahifaga qaytish tugmasi */}
+      {/* Bosh sahifaga qaytish */}
       {onBack && (
         <button
           type="button"
@@ -43,20 +41,15 @@ export default function LoginPage({ onLogin, loading, error, onBack }) {
 
       {/* Fon dekoratsiya */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-steel/10 blur-3xl" />
-        <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-safety/10 blur-3xl" />
+        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-yellow-900/10 blur-3xl" />
+        <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-yellow-800/10 blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-sm">
-        {/* Logo / Tizim nomi */}
-        <div className="mb-6 text-center">
-          <div className="mb-3 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-steel/20 text-3xl">
-            🛒
-          </div>
-          <h1 className="font-head text-2xl uppercase tracking-widest text-ink">
-            {BRAND_NAME} Kirish
-          </h1>
-          <p className="mt-1 text-xs text-mute">
+        {/* ── Logo ── */}
+        <div className="mb-8 flex flex-col items-center gap-4">
+          <PremiumLogo size="xl" badge={false} />
+          <p className="text-xs text-mute text-center">
             Tizimga kirish uchun telefon raqam va parolingizni kiriting
           </p>
         </div>
@@ -70,9 +63,7 @@ export default function LoginPage({ onLogin, loading, error, onBack }) {
                 Telefon raqam
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-3 flex items-center text-sm text-mute">
-                  📞
-                </span>
+                <span className="absolute inset-y-0 left-3 flex items-center text-sm text-mute">📞</span>
                 <input
                   type="tel"
                   inputMode="numeric"
@@ -93,9 +84,7 @@ export default function LoginPage({ onLogin, loading, error, onBack }) {
                 Parol
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-3 flex items-center text-sm text-mute">
-                  🔒
-                </span>
+                <span className="absolute inset-y-0 left-3 flex items-center text-sm text-mute">🔒</span>
                 <input
                   type={showPass ? 'text' : 'password'}
                   value={password}
@@ -109,7 +98,7 @@ export default function LoginPage({ onLogin, loading, error, onBack }) {
                   type="button"
                   onClick={() => setShowPass((v) => !v)}
                   className="absolute inset-y-0 right-3 flex items-center text-mute hover:text-ink"
-                  aria-label={showPass ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
+                  aria-label={showPass ? 'Parolni yashirish' : "Parolni ko'rsatish"}
                 >
                   {showPass ? '🙈' : '👁️'}
                 </button>
@@ -153,7 +142,7 @@ export default function LoginPage({ onLogin, loading, error, onBack }) {
         </div>
 
         <p className="mt-5 text-center text-xs text-mute/50">
-          {BRAND_NAME} Kassa Tizimi · v1.0
+          {BRAND_DOMAIN} · {BRAND_TAGLINE} · v1.0
         </p>
       </div>
     </div>

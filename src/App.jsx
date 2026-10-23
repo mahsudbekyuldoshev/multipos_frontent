@@ -14,7 +14,7 @@ import { useProducts } from './hooks/useProducts';
 import { useSales } from './hooks/useSales';
 import { dateKeyOf, todayKey } from './utils/format';
 
-const DEFAULT_STORE_NAME = 'PPREMIUM SAVDO MARKAZI';
+const DEFAULT_STORE_NAME = 'PREMIUM SAVDO MARKAZI';
 
 export default function App() {
   const { user, loading: authLoading, error: authError, login, updateProfile, logout } = useAuth();

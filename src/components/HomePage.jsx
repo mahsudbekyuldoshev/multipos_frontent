@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../services/api';
 import { BRAND_NAME } from '../config/brand';
+import PremiumLogo from './PremiumLogo';
 
 export default function HomePage({ onGoLogin }) {
   const [contactForm, setContactForm] = useState({ name: '', phone: '', message: '' });
@@ -36,17 +37,7 @@ export default function HomePage({ onGoLogin }) {
       <header className="sticky top-0 z-30 border-b border-line bg-panel/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-steel font-head text-xl font-bold text-onaccent">
-              {BRAND_NAME[0]}
-            </div>
-            <div>
-              <span className="font-head text-xl font-bold uppercase tracking-wider text-ink">
-                {BRAND_NAME}
-              </span>
-              <span className="ml-2 rounded border border-steel/40 bg-steel/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-steel">
-                Kassa & Ombor
-              </span>
-            </div>
+            <PremiumLogo size="lg" badge={true} />
           </div>
 
           <nav className="hidden items-center gap-6 md:flex">
@@ -409,7 +400,6 @@ export default function HomePage({ onGoLogin }) {
                   <div>
                     <div className="text-xs text-mute">Telegram qo'llab-quvvatlash</div>
                     <a href="https://t.me/" target="_blank" rel="noreferrer" className="font-semibold hover:text-steel">
-                      @{BRAND_NAME}_Support
                     </a>
                   </div>
                 </div>
@@ -527,11 +517,8 @@ export default function HomePage({ onGoLogin }) {
       <footer className="border-t border-line bg-panel/80 py-8 text-center text-xs text-mute">
         <div className="mx-auto max-w-5xl px-5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded bg-steel text-xs font-bold text-onaccent">
-              {BRAND_NAME[0]}
-            </span>
-            <span className="font-head text-sm font-semibold uppercase text-ink">{BRAND_NAME}</span>
-            <span>— Kassa va Savdo Avtomatlashtirish</span>
+            <PremiumLogo size="md" badge={false} />
+            <span className="text-mute">— Kassa va Savdo Avtomatlashtirish</span>
           </div>
           <div>© {new Date().getFullYear()} {BRAND_NAME}. Barcha huquqlar himoyalangan.</div>
         </div>

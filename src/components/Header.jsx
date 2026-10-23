@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { money, formatDateTime } from '../utils/format';
+import PremiumLogo from './PremiumLogo';
 
 const TABS = [
   { key: 'kassa', label: 'Kassa' },
   { key: 'ombor', label: 'Ombor boshqaruvi' },
 ];
 
-// Alohida komponent: har soniyada faqat shu qism qayta chiziladi, butun ilova emas
+// Alohida komponent: har soniyada faqat shu qism qayta chiziladi
 function Clock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -38,16 +39,12 @@ export default function Header({
     <>
       <header className="sticky top-0 z-30 border-b border-line bg-panel">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 px-5 py-3">
+          {/* ── Logo ── */}
           <div className="flex items-center gap-3">
-            <div
-              aria-hidden="true"
-              className="flex h-9 w-9 items-center justify-center bg-steel font-head text-lg text-onaccent"
-            >
-              M
-            </div>
+            <PremiumLogo size="md" badge={false} />
             <div>
               <div className="grid w-fit max-w-full">
-                {/* Ko'rinmas nusxa matn kengligini belgilaydi, input shu kenglikni oladi */}
+                {/* Ko'rinmas nusxa matn kengligini belgilaydi */}
                 <span
                   aria-hidden="true"
                   className="invisible col-start-1 row-start-1 whitespace-pre font-head text-xl font-semibold tracking-wide"
@@ -90,7 +87,6 @@ export default function Header({
               <div className="font-semibold">{money(salesSum)}</div>
             </div>
 
-            {/* Foydalanuvchi profili va tizimdan chiqish */}
             {user && (
               <div className="flex items-center gap-2 border-l border-line pl-5">
                 <button
@@ -127,7 +123,7 @@ export default function Header({
         </div>
       </header>
 
-      {/* Chiqishni tasdiqlash modali (bir bosganda chiqib ketmaydi) */}
+      {/* Chiqishni tasdiqlash modali */}
       {showLogoutConfirm && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
